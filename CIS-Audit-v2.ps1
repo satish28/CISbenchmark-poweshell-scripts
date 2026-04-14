@@ -1,4 +1,4 @@
-\xEF\xBB\xBF<#
+<#
 .SYNOPSIS
     CIS-Audit.ps1 - Non-Privileged Windows CIS Benchmark Auditor
 
@@ -234,8 +234,9 @@ function Collect-SystemInfo {
         PowerShell   = $PSVersionTable.PSVersion.ToString()
     }
 
-    # Check admin status separately to avoid type-cast parse errors
-    # in constrained PowerShell environments
+    # Check admin status separately - the double type-cast syntax
+    # [WindowsPrincipal][WindowsIdentity] can cause parse errors
+    # in constrained environments, so we use New-Object instead
     try {
         $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
         $principal = New-Object Security.Principal.WindowsPrincipal($identity)
