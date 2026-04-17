@@ -1415,9 +1415,9 @@ def cli(output: Optional[str], verbose: bool, html: Optional[str]) -> None:
     report = auditor.generate_report()
     
     # Print summary
-    click.echo("\n" + "=" * 65)
-    click.secho("AUDIT SUMMARY", fg="white", bold=True)
-    click.echo("=" * 65)
+    click.echo("\n" + "=" * 75)
+    click.secho("DEVICE INFORMATION", fg="white", bold=True)
+    click.echo("=" * 75)
     
     join_info = report["join_info"]
     click.echo(f"Join Type:    {join_info.get('join_type', 'Unknown')}")
@@ -1428,16 +1428,67 @@ def cli(output: Optional[str], verbose: bool, html: Optional[str]) -> None:
         click.echo(f"Tenant:       {join_info.get('tenant_name')}")
     if join_info.get('dc_name'):
         click.echo(f"DC:           {join_info.get('dc_name')}")
+    if join_info.get('device_id'):
+        click.echo(f"Device ID:    {join_info.get('device_id')[:36]}...")
     
-    click.echo("-" * 65)
+    click.echo(f"PRT Present:  {'Yes' if join_info.get('prt_present') else 'No'}")
+    click.echo(f"WHfB:         {'Enabled' if join_info.get('ngc_enabled') else 'Disabled'}")
+    
+    # Print findings grouped by severity
+    click.echo("\n" + "=" * 75)
+    click.secho("FINDINGS", fg="white", bold=True)
+    click.echo("=" * 75)
     
     summary = report["summary"]
-    click.secho(f"CRITICAL: {summary['critical']}", fg="red" if summary['critical'] > 0 else "white")
-    click.secho(f"HIGH:     {summary['high']}", fg="yellow" if summary['high'] > 0 else "white")
-    click.secho(f"MEDIUM:   {summary['medium']}", fg="cyan" if summary['medium'] > 0 else "white")
-    click.secho(f"LOW:      {summary['low']}", fg="white")
-    click.secho(f"INFO:     {summary['info']}", fg="green")
-    click.echo("=" * 65)
+    all_findings = report.get("all_findings", [])
+    
+    # Sort findings by severity
+    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
+    sorted_findings = sorted(all_findings, key=lambda x: severity_order.get(x["severity"], 5))
+    
+    # Color mapping
+    severity_colors = {
+        "CRITICAL": "red",
+        "HIGH": "yellow",
+        "MEDIUM": "cyan",
+        "LOW": "white",
+        "INFO": "green"
+    }
+    
+    # Print each finding
+    if sorted_findings:
+        current_severity = None
+        for f in sorted_findings:
+            sev = f["severity"]
+            
+            # Print severity header when it changes
+            if sev != current_severity:
+                current_severity = sev
+                click.echo("")
+                click.secho(f"─── {sev} ({len([x for x in sorted_findings if x['severity'] == sev])}) ───", 
+                           fg=severity_colors.get(sev, "white"), bold=True)
+            
+            # Print finding
+            color = severity_colors.get(sev, "white")
+            click.secho(f"  [{f['check_id']}] {f['title']}", fg=color)
+            click.echo(f"      Category: {f['category']}")
+            click.echo(f"      {f['description'][:80]}{'...' if len(f['description']) > 80 else ''}")
+            if f.get('mitre_attack'):
+                click.secho(f"      MITRE: {f['mitre_attack']}", fg="magenta")
+    else:
+        click.secho("  No findings detected.", fg="green")
+    
+    # Print summary counts
+    click.echo("\n" + "=" * 75)
+    click.secho("SUMMARY COUNTS", fg="white", bold=True)
+    click.echo("=" * 75)
+    click.secho(f"  CRITICAL: {summary['critical']}", fg="red" if summary['critical'] > 0 else "white")
+    click.secho(f"  HIGH:     {summary['high']}", fg="yellow" if summary['high'] > 0 else "white")
+    click.secho(f"  MEDIUM:   {summary['medium']}", fg="cyan" if summary['medium'] > 0 else "white")
+    click.secho(f"  LOW:      {summary['low']}", fg="white")
+    click.secho(f"  INFO:     {summary['info']}", fg="green")
+    click.echo(f"  TOTAL:    {summary['total_findings']}")
+    click.echo("=" * 75)
     
     # Output to file
     if output:
